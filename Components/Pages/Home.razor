@@ -1,0 +1,209 @@
+﻿@page "/"
+
+@rendermode InteractiveServer
+
+<PageTitle>Productos</PageTitle>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+
+<h4>Productos</h4>
+
+@*Errores*@
+@if (!string.IsNullOrEmpty(mensajeError)) {
+    <div class="alert alert-danger">@mensajeError</div>
+}
+
+@*Input Inventario*@
+<div class="row">
+    <label for="inventario" class="mb-3 col-sm-2 col-form-label">Inventario</label>
+    <div class="col-sm-3">
+        <input type="number" class="form-control" step="1" id="inventario" @bind="inventario" />
+    </div>
+</div>
+
+@*Input Nombre*@
+<div class="row">
+    <label for="nombre" class="mb-3 col-sm-2 col-form-label">Nombre</label>
+    <div class="col-sm-3">
+        <input type="text" class="form-control" id="nombre" @bind="nombre" />
+    </div>
+</div>
+
+@*Input Departamento*@
+<div class="row mb-3 align-items-center">
+    <label class="col-sm-2 col-form-label">Departamento</label>
+    <div class="col-sm-10">
+        @foreach (var dep in ListaDepartamentos) {
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="departamentos" id="@dep" value="@dep" checked="@(departamento == dep)" @onchange="@(() => departamento = dep)">
+            <label class="form-check-label" for="@dep">@dep</label>
+        </div>
+        }
+    </div>
+</div>
+
+@*Botones*@
+<div class="col-1"> 
+    @if (editando) { 
+        <div class="d-flex gap-2"> 
+            <button type="button" class="btn btn-primary mb-3" @onclick="Actualizar">Actualizar</button> 
+            <button type="button" class="btn btn-danger mb-3" @onclick="CancelarEdicion">Cancelar</button> 
+        </div>
+    } else { 
+        <button type="button" class="btn btn-primary mb-3" @onclick="Agregar">Guardar</button> 
+    } 
+    @if (verListado) { 
+        <button type="button" class="btn btn-secondary mb-4" @onclick="ToggleVista">Existencias</button> 
+    } else { 
+        <button type="button" class="btn btn-secondary mb-4" @onclick="ToggleVista">Listado</button>
+    } 
+</div>
+
+@*Tabla*@
+@if (verListado) {
+    <p class="text-muted">Listado de productos</p>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 table-responsive rounded-3 border shadow-sm overflow-hidden">
+            <thead class="table-borderless fw-bold">
+                <tr>
+                    <td class="col-md-3">Inventario</td>
+                    <td class="col-md-3">Nombre</td>
+                    <td class="col-md-3">Departamento</td>
+                    <td class="text-center" style="width: 120px;">Acciones</td>
+                </tr>
+            </thead>
+            <tbody class="table table-hover table-striped border">
+                @foreach (var p in productos) {
+                    <tr>
+                        <td>@p.IdInventario</td>
+                        <td>@p.Nombre</td>
+                        <td>@p.Departamento</td>
+                        <td class="text-center">
+                            @* Botón Editar *@
+                                <button class="btn btn-outline-primary btn-sm border-0" @onclick="() => PrepararEdicion(p)"><i class="bi bi-pencil-square"></i></button>
+                            @* Botón Eliminar *@
+                                <button class="btn btn-outline-danger btn-sm border-0" @onclick="() => Eliminar(p.IdInventario)"><i class="bi bi-trash"></i></button>
+                        </td>
+                    </tr>
+                }
+                @if (productos.Count == 0) {
+                    <tr>
+                        <td colspan="4" class="text-center text-muted">No hay productos registrados.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+} else {
+    <p class="text-muted">Existencias por departamento</p>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 table-responsive rounded-3 border shadow-sm overflow-hidden">
+            <thead class="table-borderless fw-bold">
+                <tr>
+                    @foreach (var dep in ListaDepartamentos) {
+                        <td class="col-md-3">@dep</td>
+                    }
+                </tr>
+            </thead>
+            <tbody class="table table-hover table-striped border">
+                <tr>
+                    @foreach (var dep in ListaDepartamentos) {
+                        <td>@productos.Count(p => p.Departamento == dep)</td>
+                    }
+                </tr>
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    int inventario;
+    string nombre = "";
+    string departamento = "Frutas";
+    string? mensajeError;
+    bool editando = false;
+    bool verListado = true;
+    int inventarioOriginal;
+
+    List<(int IdInventario, string Nombre, string Departamento)> productos = new();
+    List<string> ListaDepartamentos = new() {"Frutas", "Verduras", "Lácteos"};
+
+    void Agregar() {
+        mensajeError = null;
+
+        if (inventario <= 0) {
+            mensajeError = "El número de inventario debe ser positivo.";
+            return;
+        }
+        if (productos.Any(p => p.IdInventario == inventario)) {
+            mensajeError = "El número de inventario se encuentra registrado. Debe ser único.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(nombre)) {
+            mensajeError = "El nombre del producto es obligatorio.";
+            return;
+        }
+        if (nombre.Length > 200) {
+            mensajeError = "El nombre ha excedido el número de caracteres permitidos.";
+            return;
+        }
+
+        productos.Add((inventario, nombre, departamento));
+
+        LimpiarFormulario();
+    }
+
+    void PrepararEdicion((int IdInventario, string Nombre, string Departamento) p) {
+        editando = true;
+        inventario = p.IdInventario;
+        inventarioOriginal = p.IdInventario;
+        nombre = p.Nombre;
+        departamento = p.Departamento;
+        mensajeError = null;
+    }
+
+    void Actualizar() {
+        mensajeError = null;
+
+        if (inventario <= 0) {
+            mensajeError = "El número de inventario debe ser positivo.";
+            return;
+        }
+        if (productos.Any(p => p.IdInventario == inventario && p.IdInventario != inventarioOriginal)) {
+            mensajeError = "El número de inventario se encuentra registrado. Debe ser único.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(nombre)) {
+            mensajeError = "El nombre del producto es obligatorio.";
+            return;
+        }
+        if (nombre.Length > 200) {
+            mensajeError = "El nombre ha excedido el número de caracteres permitidos.";
+            return;
+        }
+
+        var index = productos.FindIndex(p => p.IdInventario == inventarioOriginal);
+        if (index >= 0) {
+            productos[index] = (inventario, nombre, departamento);
+        }
+        CancelarEdicion();
+    }
+
+    void Eliminar(int id) {
+        productos.RemoveAll(p => p.IdInventario == id);
+    }
+
+    void CancelarEdicion() {
+        editando = false;
+        LimpiarFormulario();
+    }
+
+    void LimpiarFormulario() {
+        inventario = 0;
+        nombre = "";
+        departamento = "Frutas";
+        mensajeError = null;
+    }
+
+    void ToggleVista() => verListado = !verListado;
+}
